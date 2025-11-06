@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Review Bids - Staff Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="container">
+    <div class="row" style="align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+      <h1>Review Bids</h1>
+      <div class="row" style="gap: 1rem; align-items: center;">
+        <span class="muted">Logged in as: <strong id="username"></strong></span>
+        <button id="logoutBtn" class="secondary">Logout</button>
+      </div>
+    </div>
+
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="staff-dashboard.html">Manage Tenders</a>
+      <a href="staff-bids.html" style="font-weight: 600;">Review Bids</a>
+    </nav>
+
+    <div class="card">
+      <h2>All Submitted Bids</h2>
+      <p class="muted">Review and evaluate company bids</p>
+      
+      <div class="row" style="margin-top: 1rem; gap: 1rem;">
+        <input id="searchInput" placeholder="Search by company..." style="flex: 2;" />
+        <select id="statusFilter" style="flex: 1;">
+          <option value="">All Status</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="UNDER_REVIEW">Under Review</option>
+          <option value="ACCEPTED">Accepted</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+    </div>
+
+    <section id="bidsList" class="grid">
+      <!-- Bids will be loaded here -->
+    </section>
+
+    <!-- Bid Review Form -->
+    <div id="reviewForm" class="card" style="display: none;">
+      <h2>Review Bid</h2>
+      <button id="cancelBtn" class="secondary">← Back to List</button>
+
+      <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem;">
+        <h3 style="margin-top: 0;">Bid Information</h3>
+        <p><strong>Bid ID:</strong> <span id="reviewBidId"></span></p>
+        <p><strong>Company:</strong> <span id="reviewCompany"></span></p>
+        <p><strong>Bid Amount:</strong> <span id="reviewAmount"></span></p>
+        <p><strong>Submitted:</strong> <span id="reviewSubmitted"></span></p>
+        <p><strong>Current Status:</strong> <span id="reviewStatus" class="status"></span></p>
+      </div>
+
+      <div style="margin-top: 1rem;">
+        <strong>Proposal:</strong>
+        <p id="reviewProposal" style="margin-top: 0.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem; white-space: pre-wrap;"></p>
+      </div>
+
+      <form id="reviewBidForm" style="margin-top: 1.5rem;">
+        <label for="reviewStatusSelect">Update Status *</label>
+        <select id="reviewStatusSelect" required>
+          <option value="SUBMITTED">SUBMITTED - Submitted</option>
+          <option value="UNDER_REVIEW">UNDER_REVIEW - Under Review</option>
+          <option value="ACCEPTED">ACCEPTED - Accepted</option>
+          <option value="REJECTED">REJECTED - Rejected</option>
+        </select>
+
+        <label for="reviewNotes">Review Notes</label>
+        <textarea id="reviewNotes" rows="5" placeholder="Add your review notes here..."></textarea>
+
+        <div class="row" style="margin-top: 1.5rem; gap: 1rem;">
+          <button type="submit" class="primary" style="flex: 1;">Save Review</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script type="module">
+    import { listBids, getBid, updateBid, getTender, logout } from './js/api.js';
+
+    // Check authentication
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) {
+      alert('Please login first');
+      window.location.href = 'login.html';
+    }
+
+    const user = JSON.parse(currentUser);
+    if (user.role !== 'CITY_STAFF') {
+      alert('Access denied. This page is for staff users only.');
+      window.location.href = 'index.html';
+    }
+
+    document.getElementById('username').textContent = user.username;
+
+    // Logout handler
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await logout();
+      sessionStorage.removeItem('currentUser');
+      window.location.href = 'index.html';
+    });
+
+    let allBids = [];
+    let currentBid = null;
+    let tenderCache = {};
+
+    const bidsList = document.getElementById('bidsList');
+    const reviewForm = document.getElementById('reviewForm');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+
+    // Load bids
+    async function loadBids() {
+      try {
+        allBids = await listBids();
+        
+        // Load tender names
+        for (const bid of allBids) {
+          if (!tenderCache[bid.tenderId]) {
+            try {
+              tenderCache[bid.tenderId] = await getTender(bid.tenderId);
+            } catch (e) {
+              tenderCache[bid.tenderId] = { name: 'Unknown Tender' };
+            }
+          }
+        }
+        
+        renderBids(allBids);
+      } catch (error) {
+        console.error('Error loading bids:', error);
+        bidsList.innerHTML = '<div class="card"><p class="muted">Failed to load bids</p></div>';
+      }
+    }
+
+    // Render bids
+    function renderBids(bids) {
+      if (bids.length === 0) {
+        bidsList.innerHTML = '<div class="card"><p class="muted">No bids submitted yet</p></div>';
+        return;
+      }
+
+      bidsList.innerHTML = bids.map(b => {
+        const tender = tenderCache[b.tenderId] || { name: 'Unknown' };
+        return `
+        <article class="card">
+          <h3>Bid #${b.id}</h3>
+          <p><span class="status ${b.status}">${b.status}</span></p>
+          <p class="muted" style="margin-top: 0.5rem;">
+            <strong>Company:</strong> ${b.companyName}
+          </p>
+          <p class="muted">
+            <strong>Tender:</strong> ${tender.name}
+          </p>
+          <p class="muted">
+            <strong>Amount:</strong> $${parseFloat(b.bidAmount || 0).toLocaleString()}
+          </p>
+          <p class="muted">
+            <strong>Submitted:</strong> ${new Date(b.submissionDate).toLocaleDateString()}
+          </p>
+          <button class="review-btn primary" data-id="${b.id}" style="margin-top: 1rem; width: 100%;">
+            Review
+          </button>
+        </article>
+      `}).join('');
+
+      // Add click handlers
+      document.querySelectorAll('.review-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target.getAttribute('data-id');
+          await showReviewForm(id);
+        });
+      });
+    }
+
+    // Show review form
+    async function showReviewForm(bidId) {
+      try {
+        currentBid = await getBid(bidId);
+        
+        document.getElementById('reviewBidId').textContent = currentBid.id;
+        document.getElementById('reviewCompany').textContent = currentBid.companyName;
+        document.getElementById('reviewAmount').textContent = `$${parseFloat(currentBid.bidAmount || 0).toLocaleString()}`;
+        document.getElementById('reviewSubmitted').textContent = new Date(currentBid.submissionDate).toLocaleString();
+        document.getElementById('reviewStatus').textContent = currentBid.status;
+        document.getElementById('reviewStatus').className = `status ${currentBid.status}`;
+        document.getElementById('reviewProposal').textContent = currentBid.proposal || 'No proposal provided';
+        
+        document.getElementById('reviewStatusSelect').value = currentBid.status;
+        document.getElementById('reviewNotes').value = currentBid.reviewNotes || '';
+
+        bidsList.style.display = 'none';
+        reviewForm.style.display = 'block';
+      } catch (error) {
+        console.error('Error loading bid:', error);
+        alert('Failed to load bid details');
+      }
+    }
+
+    // Save review
+    document.getElementById('reviewBidForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const reviewData = {
+        id: currentBid.id,
+        tenderId: currentBid.tenderId,
+        companyName: currentBid.companyName,
+        bidAmount: currentBid.bidAmount,
+        proposal: currentBid.proposal,
+        submissionDate: currentBid.submissionDate,
+        status: document.getElementById('reviewStatusSelect').value,
+        reviewNotes: document.getElementById('reviewNotes').value
+      };
+
+      try {
+        await updateBid(reviewData);
+        alert('Review saved successfully!');
+        await loadBids();
+        hideForm();
+      } catch (error) {
+        console.error('Error saving review:', error);
+        alert('Failed to save review. Please try again.');
+      }
+    });
+
+    // Cancel button
+    document.getElementById('cancelBtn').addEventListener('click', hideForm);
+
+    function hideForm() {
+      reviewForm.style.display = 'none';
+      bidsList.style.display = 'grid';
+      currentBid = null;
+    }
+
+    // Filter and search
+    function filterBids() {
+      const search = searchInput.value.toLowerCase();
+      const status = statusFilter.value;
+
+      const filtered = allBids.filter(b => {
+        const matchesSearch = !search || 
+          (b.companyName || '').toLowerCase().includes(search);
+        const matchesStatus = !status || b.status === status;
+        return matchesSearch && matchesStatus;
+      });
+
+      renderBids(filtered);
+    }
+
+    searchInput.addEventListener('input', filterBids);
+    statusFilter.addEventListener('change', filterBids);
+
+    // Initial load
+    loadBids();
+  </script>
+</body>
+</html>
+

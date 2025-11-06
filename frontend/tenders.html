@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Public Tenders</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <div class="row" style="align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+      <h1>Public Tenders</h1>
+      <div id="userInfo" style="display: none;">
+        <div class="row" style="gap: 1rem; align-items: center;">
+          <span class="muted">Logged in as: <strong id="username"></strong></span>
+          <button id="logoutBtn" class="secondary">Logout</button>
+        </div>
+      </div>
+      <div id="loginBtn" style="display: block;">
+        <a href="login.html" class="button primary" style="text-decoration: none;">Login</a>
+      </div>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <span id="dashboardLink" style="display: none;"></span>
+    </nav>
+
+    <div class="card">
+      <div class="row">
+        <input id="q" placeholder="Search by name or status..." />
+      </div>
+    </div>
+
+    <section id="list" class="grid"></section>
+
+    <div id="detail" class="card" hidden>
+      <h2 id="d-name"></h2>
+      <p class="muted"><span id="d-status" class="status"></span></p>
+      <p id="d-desc"></p>
+      <div class="row">
+        <div><strong>Start:</strong> <span id="d-start"></span></div>
+        <div><strong>End:</strong> <span id="d-end"></span></div>
+        <div><strong>Winner date:</strong> <span id="d-winnerDate"></span></div>
+      </div>
+      <div class="row">
+        <div><strong>Close at:</strong> <span id="d-close"></span></div>
+        <div><strong>Disclose at:</strong> <span id="d-disclose"></span></div>
+      </div>
+      <div class="row">
+        <div><strong>Estimated price:</strong> <span id="d-price"></span></div>
+      </div>
+      <p><strong>Staff:</strong> <span id="d-staff"></span></p>
+      <button id="back">Back to list</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { listTenders, getTender, logout } from './js/api.js';
+
+    // Check login status and show appropriate UI
+    const currentUser = sessionStorage.getItem('currentUser');
+    const userInfo = document.getElementById('userInfo');
+    const loginBtn = document.getElementById('loginBtn');
+    const dashboardLink = document.getElementById('dashboardLink');
+
+    if (currentUser) {
+      const user = JSON.parse(currentUser);
+      document.getElementById('username').textContent = user.username;
+      userInfo.style.display = 'block';
+      loginBtn.style.display = 'none';
+
+      // Show dashboard link based on role
+      if (user.role === 'CITY_STAFF') {
+        dashboardLink.innerHTML = '<a href="staff-dashboard.html">Staff Dashboard</a>';
+        dashboardLink.style.display = 'inline';
+      } else if (user.role === 'COMPANY') {
+        dashboardLink.innerHTML = '<a href="company-dashboard.html">Company Dashboard</a>';
+        dashboardLink.style.display = 'inline';
+      }
+
+      // Logout handler
+      document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await logout();
+        sessionStorage.removeItem('currentUser');
+        window.location.reload();
+      });
+    }
+
+    const listEl = document.getElementById('list');
+    const qEl = document.getElementById('q');
+    const detail = {
+      root: document.getElementById('detail'),
+      name: document.getElementById('d-name'),
+      status: document.getElementById('d-status'),
+      desc: document.getElementById('d-desc'),
+      start: document.getElementById('d-start'),
+      end: document.getElementById('d-end'),
+      winnerDate: document.getElementById('d-winnerDate'),
+      close: document.getElementById('d-close'),
+      disclose: document.getElementById('d-disclose'),
+      price: document.getElementById('d-price'),
+      staff: document.getElementById('d-staff'),
+      back: document.getElementById('back'),
+    };
+
+    let tenders = [];
+
+    function renderList(items) {
+      listEl.innerHTML = items.map(t => `
+        <article class="card">
+          <h3>${t.name}</h3>
+          <p class="muted"><span class="status ${t.status}">${t.status ?? ''}</span></p>
+          <p class="muted">${t.startDate ?? ''} → ${t.endDate ?? ''}${t.winnerDate ? ` · Winner: ${t.winnerDate}` : ''}</p>
+          <button data-id="${t.id}" class="view">View details</button>
+        </article>
+      `).join('');
+      listEl.querySelectorAll('button.view').forEach(b => b.addEventListener('click', onView));
+    }
+
+    function filterAndRender() {
+      const q = qEl.value.trim().toLowerCase();
+      const filtered = !q ? tenders : tenders.filter(t =>
+        (t.name || '').toLowerCase().includes(q) ||
+        (t.status || '').toLowerCase().includes(q)
+      );
+      renderList(filtered);
+    }
+
+    async function onView(e) {
+      const id = e.currentTarget.getAttribute('data-id');
+      const t = await getTender(id);
+      detail.name.textContent = t.name || '';
+      detail.status.textContent = t.status || '';
+      detail.status.className = `status ${t.status || ''}`;
+      detail.desc.textContent = t.description || '';
+      detail.start.textContent = t.startDate || '';
+      detail.end.textContent = t.endDate || '';
+      detail.winnerDate.textContent = t.winnerDate || '';
+      detail.close.textContent = t.closeDateTime || '';
+      detail.disclose.textContent = t.discloseDateTime || '';
+      detail.price.textContent = t.estimatedPrice ?? '';
+      detail.staff.textContent = `${t.staffName ?? ''} <${t.staffEmail ?? ''}>`;
+      detail.root.hidden = false;
+      listEl.hidden = true;
+    }
+
+    detail.back.addEventListener('click', () => {
+      detail.root.hidden = true;
+      listEl.hidden = false;
+    });
+
+    qEl.addEventListener('input', filterAndRender);
+
+    const data = await listTenders();
+    tenders = data;
+    renderList(tenders);
+  </script>
+</body>
+</html>
+
+

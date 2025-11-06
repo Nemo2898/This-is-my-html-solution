@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Staff Dashboard - E-Tendering System</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="container">
+    <div class="row" style="align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+      <h1>Staff Dashboard</h1>
+      <div class="row" style="gap: 1rem; align-items: center;">
+        <span class="muted">Logged in as: <strong id="username"></strong></span>
+        <button id="logoutBtn" class="secondary">Logout</button>
+      </div>
+    </div>
+
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="tenders.html">Public Tenders</a>
+      <a href="staff-bids.html">Review Bids</a>
+    </nav>
+
+    <div class="card">
+      <h2>Tender Management</h2>
+      <p class="muted">Create, modify, and manage all tender opportunities</p>
+      
+      <div class="row" style="margin-top: 1rem; gap: 1rem;">
+        <input id="searchInput" placeholder="Search tenders..." style="flex: 2;" />
+        <select id="statusFilter" style="flex: 1;">
+          <option value="">All Status</option>
+          <option value="OPEN">Open</option>
+          <option value="CLOSED">Closed</option>
+          <option value="AWARDED">Awarded</option>
+        </select>
+        <button id="createBtn" class="primary">+ Create New Tender</button>
+      </div>
+    </div>
+
+    <section id="tendersList" class="grid">
+      <!-- Tenders will be loaded here -->
+    </section>
+
+    <!-- Edit/Create Tender Form -->
+    <div id="tenderForm" class="card" style="display: none;">
+      <h2 id="formTitle">Edit Tender</h2>
+      <button id="cancelFormBtn" class="secondary">← Back to List</button>
+
+      <form id="editForm" style="margin-top: 1.5rem;">
+        <label for="editName">Tender Name *</label>
+        <input type="text" id="editName" required />
+
+        <label for="editDesc">Description *</label>
+        <textarea id="editDesc" rows="4" required></textarea>
+
+        <div class="row" style="gap: 1rem;">
+          <div style="flex: 1;">
+            <label for="editStart">Start Date *</label>
+            <input type="date" id="editStart" required />
+          </div>
+          <div style="flex: 1;">
+            <label for="editEnd">End Date *</label>
+            <input type="date" id="editEnd" required />
+          </div>
+        </div>
+
+        <label for="editClose">Close Date/Time *</label>
+        <input type="datetime-local" id="editClose" required />
+
+        <div class="row" style="gap: 1rem;">
+          <div style="flex: 1;">
+            <label for="editPrice">Estimated Price ($)</label>
+            <input type="number" id="editPrice" step="0.01" />
+          </div>
+          <div style="flex: 1;">
+            <label for="editTerm">Construction Term</label>
+            <input type="text" id="editTerm" placeholder="e.g., 180 days" />
+          </div>
+        </div>
+
+        <label for="editStatus">Status *</label>
+        <select id="editStatus" required>
+          <option value="OPEN">OPEN - Open for bidding</option>
+          <option value="CLOSED">CLOSED - Under evaluation</option>
+          <option value="AWARDED">AWARDED - Winner announced</option>
+        </select>
+
+        <div id="winnerFields" style="display: none; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem; margin-top: 1rem;">
+          <h3 style="margin-top: 0;">Winner Information</h3>
+          
+          <label for="editWinnerDate">Winner Date *</label>
+          <input type="date" id="editWinnerDate" />
+
+          <label for="editDisclose">Disclose Date/Time *</label>
+          <input type="datetime-local" id="editDisclose" />
+
+          <label for="editWinnerReason">Winner Reason *</label>
+          <textarea id="editWinnerReason" rows="3" placeholder="Explain why this bidder was selected"></textarea>
+        </div>
+
+        <div class="row" style="gap: 1rem;">
+          <div style="flex: 1;">
+            <label for="editStaffName">Staff Contact Name</label>
+            <input type="text" id="editStaffName" />
+          </div>
+          <div style="flex: 1;">
+            <label for="editStaffEmail">Staff Contact Email</label>
+            <input type="email" id="editStaffEmail" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 1.5rem; gap: 1rem;">
+          <button type="submit" class="primary" style="flex: 1;">Save Changes</button>
+          <button type="button" id="deleteBtn" class="secondary" style="flex: 1; display: none;">Delete Tender</button>
+        </div>
+      </form>
+
+      <!-- Bids Section for this Tender (Staff Only) -->
+      <div id="bidsSection" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border); display: none;">
+        <h3>📋 Submitted Bids for This Tender</h3>
+        <p class="muted">Review and manage all company bids submitted for this tender opportunity</p>
+        
+        <div id="bidsContainer" style="margin-top: 1rem;">
+          <!-- Bids will be loaded here -->
+        </div>
+        
+        <p id="noBidsMessage" style="text-align: center; margin-top: 1rem; color: var(--muted); display: none;">
+          No bids have been submitted for this tender yet.
+        </p>
+      </div>
+    </div>
+
+    <!-- Bid Detail Modal -->
+    <div id="bidModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+      <div class="card" style="max-width: 700px; max-height: 90vh; overflow-y: auto; margin: 2rem;">
+        <div class="row" style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h2>Bid Details</h2>
+          <button id="closeBidModal" class="secondary" style="padding: 0.5rem 1rem;">✕ Close</button>
+        </div>
+
+        <div id="bidDetails">
+          <p><strong>Company:</strong> <span id="modalCompanyName"></span></p>
+          <p><strong>Bid Amount:</strong> <span id="modalBidAmount" style="color: var(--brand); font-size: 1.2rem; font-weight: 600;"></span></p>
+          <p><strong>Submission Date:</strong> <span id="modalSubmissionDate"></span></p>
+          <p><strong>Status:</strong> <span id="modalBidStatus" class="status"></span></p>
+          
+          <!-- Company Details -->
+          <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem;">
+            <h4 style="margin-top: 0;">Company Details</h4>
+            <p id="modalCompanyDetails"></p>
+          </div>
+          
+          <!-- Proposal Summary -->
+          <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem;">
+            <h4 style="margin-top: 0;">Proposal Summary</h4>
+            <p id="modalProposalDetails" style="white-space: pre-wrap;"></p>
+          </div>
+          
+          <!-- Technical Details -->
+          <div id="modalTechnicalDetails" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem;">
+            <h4 style="margin-top: 0;">Technical Details</h4>
+          </div>
+          
+          <!-- Team & Qualifications -->
+          <div id="modalTeamDetails" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem;">
+            <h4 style="margin-top: 0;">Team & Qualifications</h4>
+          </div>
+          
+          <!-- Terms -->
+          <div id="modalTermsDetails" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem;">
+            <h4 style="margin-top: 0;">Terms & Conditions</h4>
+          </div>
+
+          <div id="bidReviewSection" style="margin-top: 1.5rem; padding: 1rem; background: var(--bg); border: 2px solid var(--border); border-radius: 0.5rem;">
+            <h3 style="margin-top: 0;">Review Actions</h3>
+            <p class="muted" style="margin-bottom: 1rem;">Update the bid status based on your evaluation</p>
+            
+            <label for="modalBidStatusSelect">Update Status</label>
+            <select id="modalBidStatusSelect" style="width: 100%; margin-bottom: 1rem;">
+              <option value="SUBMITTED">SUBMITTED - Awaiting review</option>
+              <option value="UNDER_REVIEW">UNDER_REVIEW - Currently evaluating</option>
+              <option value="ACCEPTED">ACCEPTED - Winner selected</option>
+              <option value="REJECTED">REJECTED - Not selected</option>
+            </select>
+
+            <div class="row" style="gap: 1rem; margin-top: 1rem;">
+              <button id="updateBidStatusBtn" class="primary" style="flex: 1;">Update Bid Status</button>
+            </div>
+          </div>
+
+          <div id="bidModalMessage" style="margin-top: 1rem;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { listTenders, getTender, updateTender, createTender, deleteTender, logout, listBids, updateBid } from './js/api.js';
+
+    // Check authentication
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) {
+      alert('Please login first');
+      window.location.href = 'login.html';
+    }
+
+    const user = JSON.parse(currentUser);
+    if (user.role !== 'CITY_STAFF') {
+      alert('Access denied. This page is for staff users only.');
+      window.location.href = 'index.html';
+    }
+
+    document.getElementById('username').textContent = user.username;
+
+    // Logout handler
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await logout();
+      sessionStorage.removeItem('currentUser');
+      window.location.href = 'index.html';
+    });
+
+    let allTenders = [];
+    let currentTender = null;
+    let currentBid = null;
+    let allBidsForTender = [];
+    const tendersList = document.getElementById('tendersList');
+    const tenderForm = document.getElementById('tenderForm');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const bidsSection = document.getElementById('bidsSection');
+    const bidsContainer = document.getElementById('bidsContainer');
+    const noBidsMessage = document.getElementById('noBidsMessage');
+    const bidModal = document.getElementById('bidModal');
+
+    // Load tenders
+    async function loadTenders() {
+      try {
+        allTenders = await listTenders();
+        renderTenders(allTenders);
+      } catch (error) {
+        console.error('Error loading tenders:', error);
+        tendersList.innerHTML = '<div class="card"><p class="muted">Failed to load tenders</p></div>';
+      }
+    }
+
+    // Render tenders
+    function renderTenders(tenders) {
+      if (tenders.length === 0) {
+        tendersList.innerHTML = '<div class="card"><p class="muted">No tenders found</p></div>';
+        return;
+      }
+
+      tendersList.innerHTML = tenders.map(t => `
+        <article class="card">
+          <h3>${t.name || 'Untitled'}</h3>
+          <p class="muted">
+            <span class="status ${t.status}">${t.status || 'Unknown'}</span>
+          </p>
+          <p class="muted" style="margin-top: 0.5rem;">
+            ${t.startDate || ''} → ${t.endDate || ''}
+          </p>
+          ${t.status === 'AWARDED' && t.winnerDate ? 
+            `<p style="margin-top: 0.5rem; color: var(--brand);">
+              <strong>Winner:</strong> ${t.winnerDate}
+            </p>` : ''}
+          <button class="edit-btn primary" data-id="${t.id}" style="margin-top: 1rem; width: 100%;">Edit / Approve</button>
+        </article>
+      `).join('');
+
+      // Add click handlers
+      document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target.getAttribute('data-id');
+          await showEditForm(id);
+        });
+      });
+    }
+
+    // Show edit form
+    async function showEditForm(id) {
+      try {
+        currentTender = id ? await getTender(id) : null;
+        
+        if (currentTender) {
+          document.getElementById('formTitle').textContent = 'Edit Tender';
+          document.getElementById('editName').value = currentTender.name || '';
+          document.getElementById('editDesc').value = currentTender.description || '';
+          document.getElementById('editStart').value = currentTender.startDate || '';
+          document.getElementById('editEnd').value = currentTender.endDate || '';
+          document.getElementById('editClose').value = currentTender.closeDateTime || '';
+          document.getElementById('editPrice').value = currentTender.estimatedPrice || '';
+          document.getElementById('editTerm').value = currentTender.termOfConstruction || '';
+          document.getElementById('editStatus').value = currentTender.status || 'OPEN';
+          document.getElementById('editWinnerDate').value = currentTender.winnerDate || '';
+          document.getElementById('editDisclose').value = currentTender.discloseDateTime || '';
+          document.getElementById('editWinnerReason').value = currentTender.winnerReason || '';
+          document.getElementById('editStaffName').value = currentTender.staffName || '';
+          document.getElementById('editStaffEmail').value = currentTender.staffEmail || '';
+          document.getElementById('deleteBtn').style.display = 'block';
+        } else {
+          document.getElementById('formTitle').textContent = 'Create New Tender';
+          document.getElementById('editForm').reset();
+          document.getElementById('editStatus').value = 'OPEN';
+          document.getElementById('deleteBtn').style.display = 'none';
+        }
+
+        toggleWinnerFields();
+        
+        // Load bids for this tender (only when editing existing tender)
+        if (currentTender && currentTender.id) {
+          await loadBidsForTender(currentTender.id);
+          bidsSection.style.display = 'block';
+        } else {
+          bidsSection.style.display = 'none';
+        }
+        
+        tendersList.style.display = 'none';
+        tenderForm.style.display = 'block';
+      } catch (error) {
+        console.error('Error loading tender:', error);
+        alert('Failed to load tender details');
+      }
+    }
+
+    // Load bids for a specific tender
+    async function loadBidsForTender(tenderId) {
+      try {
+        allBidsForTender = await listBids(tenderId);
+        renderBids(allBidsForTender);
+      } catch (error) {
+        console.error('Error loading bids:', error);
+        bidsContainer.innerHTML = '<p class="muted">Failed to load bids</p>';
+      }
+    }
+
+    // Render bids
+    function renderBids(bids) {
+      if (!bids || bids.length === 0) {
+        bidsContainer.innerHTML = '';
+        noBidsMessage.style.display = 'block';
+        return;
+      }
+
+      noBidsMessage.style.display = 'none';
+      bidsContainer.innerHTML = bids.map(bid => {
+        const statusColor = bid.status === 'ACCEPTED' ? 'var(--ok)' : 
+                           bid.status === 'REJECTED' ? 'var(--bad)' : 
+                           bid.status === 'UNDER_REVIEW' ? 'var(--brand)' : 
+                           'var(--muted)';
+        
+        return `
+          <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${statusColor};">
+            <div class="row" style="justify-content: space-between; align-items: center;">
+              <div>
+                <h4 style="margin: 0;">${bid.companyName || 'Unknown Company'}</h4>
+                <p class="muted" style="margin: 0.5rem 0 0 0;">
+                  <strong>Amount:</strong> $${parseFloat(bid.bidAmount || 0).toLocaleString()}
+                </p>
+                <p class="muted" style="margin: 0.25rem 0 0 0;">
+                  <strong>Submitted:</strong> ${new Date(bid.submissionDate || bid.submissionDateTime).toLocaleString()}
+                </p>
+              </div>
+              <div style="text-align: right;">
+                <span class="status ${bid.status}" style="display: inline-block; margin-bottom: 0.5rem;">${bid.status || 'SUBMITTED'}</span>
+                <button class="view-bid-btn primary" data-bid-id="${bid.id}" style="display: block; width: 100%;">
+                  Review Details
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Add click handlers for review buttons
+      document.querySelectorAll('.view-bid-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const bidId = parseInt(e.target.getAttribute('data-bid-id'));
+          const bid = allBidsForTender.find(b => b.id === bidId);
+          if (bid) showBidModal(bid);
+        });
+      });
+    }
+
+    // Show bid details modal
+    function showBidModal(bid) {
+      currentBid = bid;
+      
+      document.getElementById('modalCompanyName').textContent = bid.companyName || 'Unknown';
+      document.getElementById('modalBidAmount').textContent = `$${parseFloat(bid.bidAmount || 0).toLocaleString()}`;
+      document.getElementById('modalSubmissionDate').textContent = new Date(bid.submissionDate || bid.submissionDateTime).toLocaleString();
+      document.getElementById('modalBidStatus').textContent = bid.status || 'SUBMITTED';
+      document.getElementById('modalBidStatus').className = `status ${bid.status || 'SUBMITTED'}`;
+      
+      // Company Details
+      let companyDetailsHTML = '';
+      if (bid.companyRegistrationNumber) companyDetailsHTML += `<p><strong>Registration #:</strong> ${bid.companyRegistrationNumber}</p>`;
+      if (bid.companyAddress) companyDetailsHTML += `<p><strong>Address:</strong> ${bid.companyAddress}</p>`;
+      if (bid.contactPerson) companyDetailsHTML += `<p><strong>Contact:</strong> ${bid.contactPerson}</p>`;
+      if (bid.contactPhone) companyDetailsHTML += `<p><strong>Phone:</strong> ${bid.contactPhone}</p>`;
+      if (bid.contactEmail) companyDetailsHTML += `<p><strong>Email:</strong> ${bid.contactEmail}</p>`;
+      document.getElementById('modalCompanyDetails').innerHTML = companyDetailsHTML || '<p class="muted">No additional company details provided.</p>';
+      
+      // Proposal
+      document.getElementById('modalProposalDetails').textContent = bid.proposal || 'No proposal details provided.';
+      
+      // Technical Details
+      let technicalHTML = '';
+      if (bid.technicalApproach) technicalHTML += `<p><strong>Technical Approach:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.technicalApproach}</p>`;
+      if (bid.implementationPlan) technicalHTML += `<p><strong>Implementation Plan:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.implementationPlan}</p>`;
+      if (bid.estimatedDuration) technicalHTML += `<p><strong>Estimated Duration:</strong> ${bid.estimatedDuration} days</p>`;
+      document.getElementById('modalTechnicalDetails').innerHTML = technicalHTML || '<p class="muted">No technical details provided.</p>';
+      
+      // Team & Qualifications
+      let teamHTML = '';
+      if (bid.teamDescription) teamHTML += `<p><strong>Team:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.teamDescription}</p>`;
+      if (bid.qualifications) teamHTML += `<p><strong>Qualifications:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.qualifications}</p>`;
+      if (bid.previousExperience) teamHTML += `<p><strong>Experience:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.previousExperience}</p>`;
+      document.getElementById('modalTeamDetails').innerHTML = teamHTML || '<p class="muted">No team details provided.</p>';
+      
+      // Terms
+      let termsHTML = '';
+      if (bid.warrantyTerms) termsHTML += `<p><strong>Warranty:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.warrantyTerms}</p>`;
+      if (bid.paymentTerms) termsHTML += `<p><strong>Payment:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.paymentTerms}</p>`;
+      if (bid.additionalNotes) termsHTML += `<p><strong>Additional Notes:</strong></p><p style="white-space: pre-wrap; margin-left: 1rem;">${bid.additionalNotes}</p>`;
+      document.getElementById('modalTermsDetails').innerHTML = termsHTML || '<p class="muted">No terms specified.</p>';
+      
+      document.getElementById('modalBidStatusSelect').value = bid.status || 'SUBMITTED';
+      document.getElementById('bidModalMessage').innerHTML = '';
+      
+      bidModal.style.display = 'flex';
+    }
+
+    // Close bid modal
+    document.getElementById('closeBidModal').addEventListener('click', () => {
+      bidModal.style.display = 'none';
+      currentBid = null;
+    });
+
+    // Close modal when clicking outside
+    bidModal.addEventListener('click', (e) => {
+      if (e.target === bidModal) {
+        bidModal.style.display = 'none';
+        currentBid = null;
+      }
+    });
+
+    // Update bid status
+    document.getElementById('updateBidStatusBtn').addEventListener('click', async () => {
+      if (!currentBid) return;
+
+      const newStatus = document.getElementById('modalBidStatusSelect').value;
+      const messageDiv = document.getElementById('bidModalMessage');
+
+      try {
+        // Update bid with new status
+        const updatedBid = {
+          ...currentBid,
+          status: newStatus
+        };
+
+        await updateBid(updatedBid);
+        
+        // If accepting bid, optionally update tender status to AWARDED
+        if (newStatus === 'ACCEPTED' && currentTender) {
+          const confirmAward = confirm(`Mark tender "${currentTender.name}" as AWARDED to ${currentBid.companyName}?`);
+          if (confirmAward) {
+            const updatedTender = {
+              ...currentTender,
+              status: 'AWARDED',
+              winnerDate: new Date().toISOString().split('T')[0],
+              discloseDateTime: new Date().toISOString().slice(0, 16),
+              winnerReason: `Bid from ${currentBid.companyName} accepted with amount $${currentBid.bidAmount.toLocaleString()}`
+            };
+            await updateTender(updatedTender);
+            currentTender = updatedTender;
+            document.getElementById('editStatus').value = 'AWARDED';
+            toggleWinnerFields();
+          }
+        }
+
+        messageDiv.innerHTML = `
+          <div style="padding: 0.75rem; border-radius: 0.4rem; background: var(--ok-light); color: var(--ok); border: 1px solid var(--ok);">
+            ✓ Bid status updated successfully to ${newStatus}
+          </div>
+        `;
+
+        // Reload bids after update
+        await loadBidsForTender(currentTender.id);
+        
+        // Update modal display
+        currentBid.status = newStatus;
+        document.getElementById('modalBidStatus').textContent = newStatus;
+        document.getElementById('modalBidStatus').className = `status ${newStatus}`;
+        
+      } catch (error) {
+        console.error('Error updating bid status:', error);
+        messageDiv.innerHTML = `
+          <div style="padding: 0.75rem; border-radius: 0.4rem; background: var(--bad-light); color: var(--bad); border: 1px solid var(--bad);">
+            ✗ Failed to update bid status: ${error.message}
+          </div>
+        `;
+      }
+    });
+
+    // Toggle winner fields based on status
+    function toggleWinnerFields() {
+      const status = document.getElementById('editStatus').value;
+      const winnerFields = document.getElementById('winnerFields');
+      const isAwarded = status === 'AWARDED';
+      
+      winnerFields.style.display = isAwarded ? 'block' : 'none';
+      
+      // Set required attributes
+      document.getElementById('editWinnerDate').required = isAwarded;
+      document.getElementById('editDisclose').required = isAwarded;
+      document.getElementById('editWinnerReason').required = isAwarded;
+    }
+
+    document.getElementById('editStatus').addEventListener('change', toggleWinnerFields);
+
+    // Save tender
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const tenderData = {
+        name: document.getElementById('editName').value,
+        description: document.getElementById('editDesc').value,
+        startDate: document.getElementById('editStart').value,
+        endDate: document.getElementById('editEnd').value,
+        closeDateTime: document.getElementById('editClose').value,
+        estimatedPrice: document.getElementById('editPrice').value || null,
+        termOfConstruction: document.getElementById('editTerm').value || null,
+        status: document.getElementById('editStatus').value,
+        staffName: document.getElementById('editStaffName').value || null,
+        staffEmail: document.getElementById('editStaffEmail').value || null
+      };
+
+      if (tenderData.status === 'AWARDED') {
+        tenderData.winnerDate = document.getElementById('editWinnerDate').value;
+        tenderData.discloseDateTime = document.getElementById('editDisclose').value;
+        tenderData.winnerReason = document.getElementById('editWinnerReason').value;
+      }
+
+      try {
+        if (currentTender) {
+          // Update existing tender
+          tenderData.id = currentTender.id;
+          await updateTender(tenderData);
+          alert('Tender updated successfully!');
+        } else {
+          // Create new tender
+          await createTender(tenderData);
+          alert('Tender created successfully!');
+        }
+        
+        await loadTenders();
+        hideForm();
+      } catch (error) {
+        console.error('Error saving tender:', error);
+        alert('Failed to save tender. Please check all required fields.');
+      }
+    });
+
+    // Delete tender
+    document.getElementById('deleteBtn').addEventListener('click', async () => {
+      if (!currentTender) return;
+      
+      if (!confirm(`Are you sure you want to delete "${currentTender.name}"?`)) return;
+
+      try {
+        await deleteTender(currentTender.id);
+        alert('Tender deleted successfully!');
+        await loadTenders();
+        hideForm();
+      } catch (error) {
+        console.error('Error deleting tender:', error);
+        alert('Failed to delete tender.');
+      }
+    });
+
+    // Create new tender button
+    document.getElementById('createBtn').addEventListener('click', () => {
+      showEditForm(null);
+    });
+
+    // Cancel button
+    document.getElementById('cancelFormBtn').addEventListener('click', hideForm);
+
+    function hideForm() {
+      tenderForm.style.display = 'none';
+      tendersList.style.display = 'grid';
+      currentTender = null;
+    }
+
+    // Filter and search
+    function filterTenders() {
+      const search = searchInput.value.toLowerCase();
+      const status = statusFilter.value;
+
+      const filtered = allTenders.filter(t => {
+        const matchesSearch = !search || 
+          (t.name || '').toLowerCase().includes(search) ||
+          (t.description || '').toLowerCase().includes(search);
+        const matchesStatus = !status || t.status === status;
+        return matchesSearch && matchesStatus;
+      });
+
+      renderTenders(filtered);
+    }
+
+    searchInput.addEventListener('input', filterTenders);
+    statusFilter.addEventListener('change', filterTenders);
+
+    // Initial load
+    loadTenders();
+  </script>
+</body>
+</html>
+

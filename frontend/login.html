@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - E-Tendering System</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="container">
+    <h1>E-Tendering System</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="tenders.html">Public Tenders</a>
+    </nav>
+
+    <div class="card" style="max-width: 500px; margin: 2rem auto;">
+      <h2>Login</h2>
+      <p class="muted">Please enter your credentials to access the system</p>
+      
+      <form id="loginForm">
+        <label for="username">Username</label>
+        <input 
+          type="text" 
+          id="username" 
+          name="username" 
+          required 
+          placeholder="Enter your username"
+          autocomplete="username"
+        />
+
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          required 
+          placeholder="Enter your password"
+          autocomplete="current-password"
+        />
+
+        <div class="row" style="margin-top: 1.5rem; gap: 1rem;">
+          <button type="submit" class="primary" style="flex: 1;">Login</button>
+          <button type="button" id="cancelBtn" style="flex: 1;">Cancel</button>
+        </div>
+      </form>
+
+      <div id="message" style="margin-top: 1rem;"></div>
+
+      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <h3 style="font-size: 0.875rem; margin-bottom: 0.5rem;">Test Accounts</h3>
+        <p class="muted" style="font-size: 0.875rem; margin-bottom: 0.5rem;">
+          <strong>Staff:</strong> alice:pass123 | bob:pass123<br>
+          <strong>Company:</strong> acme:acme123 | globex:globex123
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { login } from './js/api.js';
+
+    const form = document.getElementById('loginForm');
+    const messageDiv = document.getElementById('message');
+    const cancelBtn = document.getElementById('cancelBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        // Show loading state
+        showMessage('Logging in...', 'info');
+        
+        // Call login API
+        const user = await login(username, password);
+        
+        // Store user info in sessionStorage
+        sessionStorage.setItem('currentUser', JSON.stringify(user));
+        
+        // Show success message
+        showMessage('Login successful! Redirecting...', 'success');
+        
+        // Redirect based on role
+        setTimeout(() => {
+          if (user.role === 'CITY_STAFF') {
+            window.location.href = 'staff-dashboard.html';
+          } else if (user.role === 'COMPANY') {
+            window.location.href = 'company-dashboard.html';
+          } else {
+            window.location.href = 'tenders.html';
+          }
+        }, 500);
+        
+      } catch (error) {
+        console.error('Login error:', error);
+        let errorMsg = 'Login failed. Please try again.';
+        
+        if (error.message.includes('401')) {
+          errorMsg = 'Invalid username or password.';
+        } else if (error.message.includes('423')) {
+          errorMsg = 'Account locked due to too many failed attempts.';
+        }
+        
+        showMessage(errorMsg, 'error');
+      }
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+
+    function showMessage(text, type) {
+      messageDiv.innerHTML = `
+        <div style="
+          padding: 1rem;
+          border-radius: 0.5rem;
+          background: ${type === 'error' ? 'var(--bad-light)' : type === 'success' ? 'var(--ok-light)' : 'var(--brand-light)'};
+          color: ${type === 'error' ? 'var(--bad)' : type === 'success' ? 'var(--ok)' : 'var(--brand)'};
+          border: 1px solid ${type === 'error' ? 'var(--bad)' : type === 'success' ? 'var(--ok)' : 'var(--brand)'};
+        ">
+          ${text}
+        </div>
+      `;
+    }
+
+    // Check if already logged in
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (currentUser) {
+      const user = JSON.parse(currentUser);
+      showMessage('You are already logged in. Redirecting...', 'info');
+      setTimeout(() => {
+        if (user.role === 'CITY_STAFF') {
+          window.location.href = 'staff-dashboard.html';
+        } else if (user.role === 'COMPANY') {
+          window.location.href = 'company-dashboard.html';
+        } else {
+          window.location.href = 'tenders.html';
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Company Dashboard - E-Tendering System</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="container">
+    <div class="row" style="align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+      <h1>Company Dashboard</h1>
+      <div class="row" style="gap: 1rem; align-items: center;">
+        <span class="muted">Logged in as: <strong id="username"></strong></span>
+        <button id="logoutBtn" class="secondary">Logout</button>
+      </div>
+    </div>
+
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="tenders.html">Public Tenders</a>
+      <a href="company-bids.html">My Bids</a>
+    </nav>
+
+    <div class="card">
+      <h2>All Tenders</h2>
+      <p class="muted">View all tender opportunities and their current status</p>
+      
+      <div class="row" style="margin-top: 1rem; gap: 1rem;">
+        <input id="searchInput" placeholder="Search tenders..." style="flex: 2;" />
+        <select id="statusFilter" style="flex: 1;">
+          <option value="">All Status</option>
+          <option value="OPEN">Open for Bidding</option>
+          <option value="CLOSED">Under Evaluation</option>
+          <option value="AWARDED">Winner Announced</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="statsCards" class="row" style="margin: 1.5rem 0;">
+      <!-- Stats will be inserted here -->
+    </div>
+
+    <section id="tendersList" class="grid">
+      <!-- Tenders will be loaded here -->
+    </section>
+
+    <div id="tenderDetail" class="card" style="display: none;">
+      <button id="backBtn" class="secondary">← Back to List</button>
+      <h2 id="detailName" style="margin-top: 1rem;"></h2>
+      <p><span id="detailStatus" class="status"></span></p>
+      
+      <div class="row" style="margin-top: 1rem;">
+        <div style="flex: 1;">
+          <strong>Start Date:</strong><br>
+          <span id="detailStart" class="muted"></span>
+        </div>
+        <div style="flex: 1;">
+          <strong>End Date:</strong><br>
+          <span id="detailEnd" class="muted"></span>
+        </div>
+        <div style="flex: 1;">
+          <strong>Close Date/Time:</strong><br>
+          <span id="detailClose" class="muted"></span>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem;">
+        <strong>Description:</strong>
+        <p id="detailDesc" class="muted" style="margin-top: 0.5rem;"></p>
+      </div>
+
+      <div class="row" style="margin-top: 1.5rem;">
+        <div style="flex: 1;">
+          <strong>Estimated Price:</strong><br>
+          <span id="detailPrice" class="muted"></span>
+        </div>
+        <div style="flex: 1;">
+          <strong>Construction Term:</strong><br>
+          <span id="detailTerm" class="muted"></span>
+        </div>
+      </div>
+
+      <div id="winnerSection" style="margin-top: 1.5rem; display: none;">
+        <div style="padding: 1rem; background: var(--brand-light); border-radius: 0.5rem; border: 1px solid var(--brand);">
+          <strong style="color: var(--brand);">Winner Announced</strong>
+          <div style="margin-top: 0.5rem;">
+            <strong>Winner Date:</strong> <span id="detailWinnerDate"></span><br>
+            <strong>Disclose Date/Time:</strong> <span id="detailDisclose"></span><br>
+            <strong>Reason:</strong> <span id="detailWinnerReason"></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <strong>Contact:</strong><br>
+        <span id="detailStaff" class="muted"></span>
+      </div>
+
+      <div id="bidActionSection" style="margin-top: 1.5rem; display: none;">
+        <a id="submitBidBtn" href="#" class="button primary" style="display: inline-block; text-decoration: none; padding: 0.75rem 1.5rem;">
+          Submit Bid for This Tender
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { listTenders, getTender, logout } from './js/api.js';
+
+    // Check authentication
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) {
+      alert('Please login first');
+      window.location.href = 'login.html';
+    }
+
+    const user = JSON.parse(currentUser);
+    if (user.role !== 'COMPANY') {
+      alert('Access denied. This page is for company users only.');
+      window.location.href = 'index.html';
+    }
+
+    document.getElementById('username').textContent = user.username;
+
+    // Logout handler
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await logout();
+      sessionStorage.removeItem('currentUser');
+      window.location.href = 'index.html';
+    });
+
+    let allTenders = [];
+    const tendersList = document.getElementById('tendersList');
+    const tenderDetail = document.getElementById('tenderDetail');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+
+    // Load tenders
+    async function loadTenders() {
+      try {
+        allTenders = await listTenders();
+        renderStats();
+        renderTenders(allTenders);
+      } catch (error) {
+        console.error('Error loading tenders:', error);
+        tendersList.innerHTML = '<div class="card"><p class="muted">Failed to load tenders</p></div>';
+      }
+    }
+
+    // Render statistics
+    function renderStats() {
+      const stats = {
+        open: allTenders.filter(t => t.status === 'OPEN').length,
+        closed: allTenders.filter(t => t.status === 'CLOSED').length,
+        awarded: allTenders.filter(t => t.status === 'AWARDED').length
+      };
+
+      document.getElementById('statsCards').innerHTML = `
+        <div class="card" style="flex: 1; text-align: center;">
+          <h3 style="color: var(--ok); font-size: 2rem; margin: 0;">${stats.open}</h3>
+          <p class="muted" style="margin: 0.5rem 0 0 0;">Open for Bidding</p>
+        </div>
+        <div class="card" style="flex: 1; text-align: center;">
+          <h3 style="color: var(--warn); font-size: 2rem; margin: 0;">${stats.closed}</h3>
+          <p class="muted" style="margin: 0.5rem 0 0 0;">Under Evaluation</p>
+        </div>
+        <div class="card" style="flex: 1; text-align: center;">
+          <h3 style="color: var(--brand); font-size: 2rem; margin: 0;">${stats.awarded}</h3>
+          <p class="muted" style="margin: 0.5rem 0 0 0;">Winner Announced</p>
+        </div>
+      `;
+    }
+
+    // Render tenders
+    function renderTenders(tenders) {
+      if (tenders.length === 0) {
+        tendersList.innerHTML = '<div class="card"><p class="muted">No tenders found</p></div>';
+        return;
+      }
+
+      tendersList.innerHTML = tenders.map(t => `
+        <article class="card" data-id="${t.id}" style="cursor: pointer;">
+          <h3>${t.name || 'Untitled'}</h3>
+          <p class="muted">
+            <span class="status ${t.status}">${t.status || 'Unknown'}</span>
+          </p>
+          <p class="muted" style="margin-top: 0.5rem;">
+            ${t.startDate || ''} → ${t.endDate || ''}
+          </p>
+          ${t.status === 'AWARDED' && t.winnerDate ? 
+            `<p style="margin-top: 0.5rem; color: var(--brand);">
+              <strong>Winner Date:</strong> ${t.winnerDate}
+            </p>` : ''}
+          <button class="view-btn" data-id="${t.id}" style="margin-top: 1rem;">View Details</button>
+        </article>
+      `).join('');
+
+      // Add click handlers
+      document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = e.target.getAttribute('data-id');
+          await showTenderDetail(id);
+        });
+      });
+    }
+
+    // Show tender detail
+    async function showTenderDetail(id) {
+      try {
+        const tender = await getTender(id);
+        
+        document.getElementById('detailName').textContent = tender.name || '';
+        document.getElementById('detailStatus').textContent = tender.status || '';
+        document.getElementById('detailStatus').className = `status ${tender.status || ''}`;
+        document.getElementById('detailStart').textContent = tender.startDate || 'N/A';
+        document.getElementById('detailEnd').textContent = tender.endDate || 'N/A';
+        document.getElementById('detailClose').textContent = tender.closeDateTime || 'N/A';
+        document.getElementById('detailDesc').textContent = tender.description || 'No description available';
+        document.getElementById('detailPrice').textContent = tender.estimatedPrice ? `$${parseFloat(tender.estimatedPrice).toLocaleString()}` : 'N/A';
+        document.getElementById('detailTerm').textContent = tender.termOfConstruction || 'N/A';
+        document.getElementById('detailStaff').textContent = `${tender.staffName || 'N/A'} (${tender.staffEmail || 'N/A'})`;
+
+        // Winner section
+        const winnerSection = document.getElementById('winnerSection');
+        if (tender.status === 'AWARDED') {
+          document.getElementById('detailWinnerDate').textContent = tender.winnerDate || 'N/A';
+          document.getElementById('detailDisclose').textContent = tender.discloseDateTime || 'N/A';
+          document.getElementById('detailWinnerReason').textContent = tender.winnerReason || 'No reason provided';
+          winnerSection.style.display = 'block';
+        } else {
+          winnerSection.style.display = 'none';
+        }
+
+        // Bid action section - show submit bid button if tender is OPEN
+        const bidActionSection = document.getElementById('bidActionSection');
+        const submitBidBtn = document.getElementById('submitBidBtn');
+        if (tender.status === 'OPEN') {
+          submitBidBtn.href = `company-bids.html?tenderId=${id}`;
+          bidActionSection.style.display = 'block';
+        } else {
+          bidActionSection.style.display = 'none';
+        }
+
+        tendersList.style.display = 'none';
+        document.getElementById('statsCards').style.display = 'none';
+        tenderDetail.style.display = 'block';
+      } catch (error) {
+        console.error('Error loading tender details:', error);
+        alert('Failed to load tender details');
+      }
+    }
+
+    // Back button
+    document.getElementById('backBtn').addEventListener('click', () => {
+      tenderDetail.style.display = 'none';
+      tendersList.style.display = 'grid';
+      document.getElementById('statsCards').style.display = 'flex';
+    });
+
+    // Filter and search
+    function filterTenders() {
+      const search = searchInput.value.toLowerCase();
+      const status = statusFilter.value;
+
+      const filtered = allTenders.filter(t => {
+        const matchesSearch = !search || 
+          (t.name || '').toLowerCase().includes(search) ||
+          (t.description || '').toLowerCase().includes(search);
+        const matchesStatus = !status || t.status === status;
+        return matchesSearch && matchesStatus;
+      });
+
+      renderTenders(filtered);
+    }
+
+    searchInput.addEventListener('input', filterTenders);
+    statusFilter.addEventListener('change', filterTenders);
+
+    // Initial load
+    loadTenders();
+  </script>
+</body>
+</html>
+

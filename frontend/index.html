@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E‑Tendering Frontend</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="container">
+    <div class="row" style="align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+      <h1>E‑Tendering System</h1>
+      <div id="userInfo" style="display: none;">
+        <div class="row" style="gap: 1rem; align-items: center;">
+          <span class="muted">Logged in as: <strong id="username"></strong> (<span id="userRole"></span>)</span>
+          <button id="logoutBtn" class="secondary">Logout</button>
+        </div>
+      </div>
+      <div id="loginBtn" style="display: block;">
+        <a href="login.html" class="button primary" style="text-decoration: none;">Login</a>
+      </div>
+    </div>
+
+    <nav id="guestNav">
+      <a href="tenders.html">Public Tenders</a>
+    </nav>
+
+    <nav id="authNav" style="display: none;">
+      <!-- Will be populated based on user role -->
+    </nav>
+    
+    <div class="card">
+      <h2>Welcome to E-Tendering System</h2>
+      <p>
+        This system provides a comprehensive platform for managing tender processes, 
+        from submission to evaluation and award. Choose your role below to get started.
+      </p>
+      
+      <div class="row" style="margin-top: 2rem; gap: 2rem;">
+        <div class="card" style="flex: 1; background: var(--bg-secondary);">
+          <h3>For Public</h3>
+          <p>View and search public tenders</p>
+          <ul style="list-style: disc; margin-left: 1.5rem; color: var(--muted); margin-top: 1rem;">
+            <li>Browse available tenders</li>
+            <li>Search by name or status</li>
+            <li>View tender details</li>
+          </ul>
+          <a href="tenders.html" class="button" style="margin-top: 1rem; display: inline-block; text-decoration: none;">View Public Tenders</a>
+        </div>
+        <div class="card" style="flex: 1; background: var(--bg-secondary);">
+          <h3>For Companies</h3>
+          <p>Track your tender submissions</p>
+          <ul style="list-style: disc; margin-left: 1.5rem; color: var(--muted); margin-top: 1rem;">
+            <li>View tender opportunities</li>
+            <li>Track submission status</li>
+            <li>View evaluation results</li>
+          </ul>
+          <a href="login.html" class="button primary" style="margin-top: 1rem; display: inline-block; text-decoration: none;">Login as Company</a>
+        </div>
+        <div class="card" style="flex: 1; background: var(--bg-secondary);">
+          <h3>For Staff</h3>
+          <p>Manage and evaluate tenders</p>
+          <ul style="list-style: disc; margin-left: 1.5rem; color: var(--muted); margin-top: 1rem;">
+            <li>Create tender opportunities</li>
+            <li>Evaluate submissions</li>
+            <li>Award contracts</li>
+          </ul>
+          <a href="login.html" class="button primary" style="margin-top: 1rem; display: inline-block; text-decoration: none;">Login as Staff</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { getCurrentUser, logout } from './js/api.js';
+
+    // Check if user is logged in
+    const currentUser = sessionStorage.getItem('currentUser');
+    const userInfo = document.getElementById('userInfo');
+    const loginBtn = document.getElementById('loginBtn');
+    const guestNav = document.getElementById('guestNav');
+    const authNav = document.getElementById('authNav');
+
+    if (currentUser) {
+      const user = JSON.parse(currentUser);
+      
+      // Show user info
+      document.getElementById('username').textContent = user.username;
+      document.getElementById('userRole').textContent = user.role;
+      userInfo.style.display = 'block';
+      loginBtn.style.display = 'none';
+
+      // Show role-based navigation
+      guestNav.style.display = 'none';
+      authNav.style.display = 'block';
+
+      if (user.role === 'CITY_STAFF') {
+        authNav.innerHTML = `
+          <a href="staff-dashboard.html">Staff Dashboard</a>
+          <a href="tenders.html">Public Tenders</a>
+        `;
+      } else if (user.role === 'COMPANY') {
+        authNav.innerHTML = `
+          <a href="company-dashboard.html">Company Dashboard</a>
+          <a href="tenders.html">Public Tenders</a>
+        `;
+      }
+
+      // Logout handler
+      document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await logout();
+        sessionStorage.removeItem('currentUser');
+        window.location.reload();
+      });
+    }
+  </script>
+
+  <script src="enhanced-script.js"></script>
+</body>
+</html>
+
+

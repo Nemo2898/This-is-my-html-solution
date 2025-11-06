@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Staff Access - Login Required</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="container">
+    <div class="card" style="max-width: 600px; margin: 4rem auto; text-align: center;">
+      <h1>🔒 Staff Access Required</h1>
+      <p class="muted" style="margin: 2rem 0; font-size: 1.1rem;">
+        This page is restricted to authorized staff members only.
+      </p>
+      <p class="muted" style="margin-bottom: 2rem;">
+        Please login with your staff credentials to access the staff dashboard.
+      </p>
+      <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+        <a href="login.html" class="button primary" style="text-decoration: none; padding: 0.75rem 2rem;">Login as Staff</a>
+        <a href="index.html" class="button secondary" style="text-decoration: none; padding: 0.75rem 2rem;">Go Home</a>
+      </div>
+
+      <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+        <h3 style="font-size: 0.875rem; margin-bottom: 0.5rem;">Test Staff Account</h3>
+        <p class="muted" style="font-size: 0.875rem;">
+          Username: <code>alice</code> | Password: <code>pass123</code><br>
+          Username: <code>bob</code> | Password: <code>pass123</code>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Check if user is logged in
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (currentUser) {
+      const user = JSON.parse(currentUser);
+      if (user.role === 'CITY_STAFF') {
+        // Redirect staff to their dashboard
+        window.location.href = 'staff-dashboard.html';
+      } else {
+        // Show access denied message for non-staff users
+        document.body.innerHTML = `
+          <main class="container">
+            <div class="card" style="max-width: 600px; margin: 4rem auto; text-align: center;">
+              <h1>⛔ Access Denied</h1>
+              <p class="muted" style="margin: 2rem 0; font-size: 1.1rem;">
+                You do not have permission to access this page.
+              </p>
+              <p class="muted" style="margin-bottom: 2rem;">
+                This page is only accessible to staff members.
+              </p>
+              <div style="display: flex; gap: 1rem; justify-content: center;">
+                <a href="index.html" class="button primary" style="text-decoration: none;">Go Home</a>
+                <a href="#" onclick="logout()" class="button secondary" style="text-decoration: none;">Logout</a>
+              </div>
+            </div>
+          </main>
+        `;
+      }
+    }
+
+    async function logout() {
+      sessionStorage.removeItem('currentUser');
+      window.location.href = 'login.html';
+    }
+  </script>
+</body>
+</html>
